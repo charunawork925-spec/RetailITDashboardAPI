@@ -3,12 +3,122 @@
 # main.py  |  uvicorn main:app --reload --port 8000
 # ============================================================
 
+# from fastapi import FastAPI, HTTPException
+# from fastapi.middleware.cors import CORSMiddleware
+# from pydantic import BaseModel
+# from typing import List, Optional
+# import database as db
+# import query_engine as qe
+# from enum import Enum
+# from datetime import date, datetime
+
+# app = FastAPI(title="InsightIQ API", version="2.0.0")
+
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["http://localhost:4200"],
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
+
+# # ── REQUEST MODEL ────────────────────────────────────────────
+# class QueryRequest(BaseModel):
+#     dataset:   str
+#     dimensions: List[str] = []
+#     measures:   List[str] = []
+#     filters:    Optional[List[dict]] = []
+#     limit:      Optional[int] = 50
+#     order_by:   Optional[str] = None
+#     order_dir:  Optional[str] = "DESC"
+
+# class DateRangePreset(str, Enum):
+#         LAST_7_DAYS = "last_7_days"
+#         LAST_30_DAYS = "last_30_days"
+#         LAST_90_DAYS = "last_90_days"
+#         THIS_MONTH = "this_month"
+#         LAST_MONTH = "last_month"
+#         THIS_QUARTER = "this_quarter"
+#         LAST_QUARTER = "last_quarter"
+#         THIS_YEAR = "this_year"
+#         LAST_YEAR = "last_year"
+#         CUSTOM = "custom"
+
+# class GrossProfitFilter(BaseModel):
+#         # Date filters
+#         date_preset: Optional[DateRangePreset] = DateRangePreset.LAST_30_DAYS
+#         start_date: Optional[str] = None  # YYYY-MM-DD
+#         end_date: Optional[str] = None    # YYYY-MM-DD
+        
+#         # Product filters
+#         product_names: Optional[List[str]] = Field(default=None, description="List of product names")
+#         product_codes: Optional[List[str]] = Field(default=None, description="List of SKU codes")
+#         product_ids: Optional[List[int]] = Field(default=None, description="List of product IDs")
+#         categories: Optional[List[str]] = Field(default=None, description="List of categories")
+#         sub_categories: Optional[List[str]] = Field(default=None, description="List of sub-categories")
+#         brands: Optional[List[str]] = Field(default=None, description="List of brands")
+        
+#         # Boolean filters
+#         is_halal: Optional[bool] = None
+#         is_organic: Optional[bool] = None
+        
+#         # Customer filters
+#         loyalty_tiers: Optional[List[str]] = Field(default=None, description="Gold, Silver, Bronze")
+#         religions: Optional[List[str]] = Field(default=None, description="Buddhist, Muslim, etc.")
+#         areas: Optional[List[str]] = Field(default=None, description="Customer areas")
+        
+#         # Branch filters
+#         branch_ids: Optional[List[int]] = None
+#         branch_names: Optional[List[str]] = None
+        
+#         # Payment filters
+#         payment_methods: Optional[List[str]] = None
+        
+#         # Profit filters
+#         min_gross_profit: Optional[float] = Field(default=None, ge=0, description="Minimum gross profit amount")
+#         max_gross_profit: Optional[float] = Field(default=None, ge=0, description="Maximum gross profit amount")
+#         min_profit_margin: Optional[float] = Field(default=None, ge=0, le=100, description="Minimum profit margin %")
+#         max_profit_margin: Optional[float] = Field(default=None, ge=0, le=100, description="Maximum profit margin %")
+    
+#     # Aggregation settings
+#     group_by: Optional[List[str]] = Field(
+#         default=["product"],
+#         description="Group by: product, category, brand, month, branch, loyalty_tier"
+#     )
+    
+#     # Sorting and pagination
+#     sort_by: Optional[str] = Field(default="total_gross_profit", description="Sort field")
+#     sort_order: Optional[str] = Field(default="DESC", pattern="^(ASC|DESC)$")
+#     limit: Optional[int] = Field(default=100, ge=1, le=1000)
+#     offset: Optional[int] = Field(default=0, ge=0)
+    
+#     # Output formatting
+#     include_summary: Optional[bool] = True
+#     include_trend: Optional[bool] = False
+#     format_currency: Optional[bool] = True
+
+#  class GrossProfitResponse(BaseModel):
+#     success: bool
+#     data: List[dict]
+#     count: int
+#     summary: Optional[dict] = None
+#     trend: Optional[dict] = None
+#     filters_applied: dict
+#     query_execution_time_ms: Optional[float] = None
+
+# ============================================================
+# InsightIQ — FastAPI Backend (upgraded)
+# main.py  |  uvicorn main:app --reload --port 8000
+# ============================================================
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 import database as db
 import query_engine as qe
+from enum import Enum
+from datetime import date, datetime
 
 app = FastAPI(title="InsightIQ API", version="2.0.0")
 
@@ -20,15 +130,88 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── GLOBAL ENUM (FIXED) ──────────────────────────────────────
+class DateRangePreset(str, Enum):
+    LAST_7_DAYS = "last_7_days"
+    LAST_30_DAYS = "last_30_days"
+    LAST_90_DAYS = "last_90_days"
+    THIS_MONTH = "this_month"
+    LAST_MONTH = "last_month"
+    THIS_QUARTER = "this_quarter"
+    LAST_QUARTER = "last_quarter"
+    THIS_YEAR = "this_year"
+    LAST_YEAR = "last_year"
+    CUSTOM = "custom"
+
 # ── REQUEST MODEL ────────────────────────────────────────────
 class QueryRequest(BaseModel):
-    dataset:   str
+    dataset: str
     dimensions: List[str] = []
-    measures:   List[str] = []
-    filters:    Optional[List[dict]] = []
-    limit:      Optional[int] = 50
-    order_by:   Optional[str] = None
-    order_dir:  Optional[str] = "DESC"
+    measures: List[str] = []
+    filters: Optional[List[dict]] = []
+    order_by: Optional[str] = None
+    order_dir: Optional[str] = "DESC"
+
+    # ── NESTED FILTER MODEL ──────────────────────────────────
+    class GrossProfitFilter(BaseModel):
+        # Date filters
+        date_preset: Optional[DateRangePreset] = DateRangePreset.LAST_30_DAYS
+        start_date: Optional[str] = None
+        end_date: Optional[str] = None
+        
+        # Product filters
+        product_names: Optional[List[str]] = Field(default=None)
+        product_codes: Optional[List[str]] = Field(default=None)
+        product_ids: Optional[List[int]] = Field(default=None)
+        categories: Optional[List[str]] = Field(default=None)
+        sub_categories: Optional[List[str]] = Field(default=None)
+        brands: Optional[List[str]] = Field(default=None)
+        
+        # Boolean filters
+        is_halal: Optional[bool] = None
+        is_organic: Optional[bool] = None
+        
+        # Customer filters
+        loyalty_tiers: Optional[List[str]] = Field(default=None)
+        religions: Optional[List[str]] = Field(default=None)
+        areas: Optional[List[str]] = Field(default=None)
+        
+        # Branch filters
+        branch_ids: Optional[List[int]] = None
+        branch_names: Optional[List[str]] = None
+        
+        # Payment filters
+        payment_methods: Optional[List[str]] = None
+        
+        # Profit filters
+        min_gross_profit: Optional[float] = Field(default=None, ge=0)
+        max_gross_profit: Optional[float] = Field(default=None, ge=0)
+        min_profit_margin: Optional[float] = Field(default=None, ge=0, le=100)
+        max_profit_margin: Optional[float] = Field(default=None, ge=0, le=100)
+
+    # Aggregation settings
+    group_by: Optional[List[str]] = Field(default=["product"])
+    
+    # Sorting and pagination
+    sort_by: Optional[str] = "total_gross_profit"
+    sort_order: Optional[str] = Field(default="DESC", pattern="^(ASC|DESC)$")
+    limit: Optional[int] = Field(default=100, ge=1, le=1000)
+    offset: Optional[int] = Field(default=0, ge=0)
+    
+    # Output formatting
+    include_summary: Optional[bool] = True
+    include_trend: Optional[bool] = False
+    format_currency: Optional[bool] = True
+
+# ── RESPONSE MODEL ───────────────────────────────────────────
+class GrossProfitResponse(BaseModel):
+    success: bool
+    data: List[dict]
+    count: int
+    summary: Optional[dict] = None
+    trend: Optional[dict] = None
+    filters_applied: dict
+    query_execution_time_ms: Optional[float] = None
 
 # ── DATASET METADATA ─────────────────────────────────────────
 DATASETS_META = {
