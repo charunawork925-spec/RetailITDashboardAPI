@@ -1,0 +1,6 @@
+@SmartDashboardAPI_HostAddress = http://localhost:5137
+
+GET {{SmartDashboardAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
